@@ -34,9 +34,29 @@ exports.handler = async (event, context) => {
 
     // --------- POST (Neues Produkt hinzufügen) ---------
     if (method === 'POST') {
-      const body = JSON.parse(event.body);
+      // 1) Prüfen, ob event.body vorhanden ist
+      if (!event.body) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: "Leerer Body. Hast du JSON gesendet?" }),
+        };
+      }
+
+      // 2) JSON.parse in try/catch, falls body kein gültiges JSON ist
+      let body;
+      try {
+        body = JSON.parse(event.body);
+      } catch (parseError) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Ungültiges JSON im Body.' }),
+        };
+      }
+
+      // 3) Eigentliche Felder auslesen
       const { name, price, points, imageData } = body;
 
+      // 4) Neuen Eintrag in Fauna erstellen
       const newItem = await client.query(
         q.Create(
           q.Collection('products'),
@@ -81,6 +101,7 @@ exports.handler = async (event, context) => {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method Not Allowed' }),
     };
+
   } catch (err) {
     console.error('Fehler in der Netlify Function:', err);
     return {

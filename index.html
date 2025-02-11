@@ -295,36 +295,21 @@
   
   <script>
     /* ------------------ Globale Variablen ------------------ */
-    // Wir nutzen hier nur noch eine feste Variable für das Operatorpasswort.
-    // (Wenn du das auch sicherheitshalber in Fauna oder Env-Variablen haben möchtest,
-    //  musst du es ähnlich wie die Produkte über eine Netlify Function regeln.)
     let operatorPassword = "1234";
-
-    // Produkte nur noch als Array im Speicher. Laden/speichern über Netlify Functions.
     let products = [];
-
-    // Bestellungen (bleiben hier im localStorage, falls du das so beibehalten willst)
     let orders = JSON.parse(localStorage.getItem('orders') || '[]');
 
-    // Aktueller Kunde
+    // Kundendaten, Produktauswahl etc.
     let currentCustomer = {};
-    // Kopie der Produkte mit quantity-Feld für Produktauswahl
     let selectedProducts = [];
-    // Die Auswahl an Produkten, die der Kunde bestellt
     let selectedOrder = [];
 
-    // Client-IP holen (z. B. über ipify)
+    // IP
     let clientIP = "";
     fetch('https://api.ipify.org?format=json')
       .then(response => response.json())
-      .then(data => {
-        clientIP = data.ip;
-        console.log("Client IP:", clientIP);
-      })
-      .catch(err => {
-        console.error("IP-Abruf fehlgeschlagen:", err);
-        clientIP = "unbekannt";
-      });
+      .then(data => { clientIP = data.ip; })
+      .catch(err => { console.error("IP-Abruf fehlgeschlagen:", err); clientIP = "unbekannt"; });
 
     // Navigation
     let navHistory = [];
@@ -355,7 +340,6 @@
     document.querySelectorAll('.back-button').forEach(btn => {
       btn.addEventListener('click', goBack);
     });
-
     document.querySelectorAll('.footer').forEach(footer => {
       footer.addEventListener('click', () => { showScreen("screen-operator-login"); });
     });
@@ -371,7 +355,6 @@
       
       if (name && tpNumber && phone && email) {
         currentCustomer = { name, tpNumber, phone, email, wechatId, ip: clientIP };
-        // selectedProducts = Kopie aller Produkte mit quantity=0
         selectedProducts = products.map(p => ({ ...p, quantity: 0 }));
         renderProduktList();
         showScreen("screen-produktauswahl");
@@ -385,7 +368,7 @@
       e.preventDefault();
       const inputPass = document.getElementById('input-operator-password').value;
       if (inputPass === operatorPassword) {
-        // Bevor wir ins Dashboard gehen, Produkte aus Fauna laden:
+        // Lade Produkte aus Fauna, dann Dashboard
         await renderOperatorProducts();
         showScreen("screen-operator-dashboard");
       } else {
@@ -394,7 +377,6 @@
     });
 
     /* ------------------ Operator Dashboard Screen ------------------ */
-    // Lade Produkte aus FaunaDB und rendere sie
     async function loadProducts() {
       try {
         const res = await fetch('/.netlify/functions/products'); // GET
@@ -408,10 +390,7 @@
     }
 
     async function renderOperatorProducts() {
-      // Produkte laden
       await loadProducts();
-
-      // Im DOM rendern
       const listDiv = document.getElementById('operator-products-list');
       listDiv.innerHTML = "";
       
@@ -432,13 +411,10 @@
         const removeBtn = document.createElement('button');
         removeBtn.textContent = "Entfernen";
         removeBtn.style.backgroundColor = "#FF3B30";
-        
         removeBtn.addEventListener('click', async function() {
           try {
             await removeProductFromFauna(product.id);
-            // Lokal im Array entfernen
             products.splice(index, 1);
-            // Neu rendern
             renderOperatorProducts();
           } catch (err) {
             console.error("Fehler beim Löschen des Produkts:", err);
@@ -450,7 +426,6 @@
       });
     }
 
-    // Produkt per POST an Fauna schicken
     async function addProductToFauna(newProduct) {
       const response = await fetch('/.netlify/functions/products', {
         method: 'POST',
@@ -460,10 +435,9 @@
       if (!response.ok) {
         throw new Error(`Fehler beim Hinzufügen: ${response.statusText}`);
       }
-      return await response.json(); // das neu gespeicherte Produkt
+      return await response.json();
     }
 
-    // Produkt per DELETE in Fauna entfernen
     async function removeProductFromFauna(productId) {
       const response = await fetch(`/.netlify/functions/products?id=${productId}`, {
         method: 'DELETE',
@@ -477,7 +451,6 @@
     document.getElementById('btn-show-add-product').addEventListener('click', function() {
       document.getElementById('add-product-form').style.display = "block";
     });
-
     document.getElementById('btn-cancel-add-product').addEventListener('click', function() {
       document.getElementById('add-product-form').style.display = "none";
     });
@@ -499,20 +472,14 @@
         return;
       }
 
-      // Bild in Base64 umwandeln
       const reader = new FileReader();
       reader.onload = async function(event) {
         const imageData = event.target.result;
         const newProduct = { name, price, points, imageData };
-        
         try {
-          // An Fauna senden
           const savedProduct = await addProductToFauna(newProduct);
-          // Lokal ins Array hinzufügen
           products.push(savedProduct);
-          // Neu rendern
           renderOperatorProducts();
-          // Formular zurücksetzen
           document.getElementById('form-add-product').reset();
           document.getElementById('add-product-form').style.display = "none";
         } catch (err) {
