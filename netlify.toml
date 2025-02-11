@@ -1,9 +1,7 @@
 [build]
-  # Falls du ein statisches Frontend hast:
   publish = "."
 
 [functions]
-  # Nutzt ESBuild und schließt den "fauna" Node-Modul ein
   node_bundler = "esbuild"
-  external_node_modules = ["fauna"]
+  external_node_modules = ["faunadb"]
   included_files = ["netlify/functions/products.mjs"]

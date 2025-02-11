@@ -15,6 +15,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "fauna": "^2.5.0"
+    "faunadb": "^4.8.2"
   }
 }
