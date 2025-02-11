@@ -5,7 +5,7 @@
   <title>Minimalistische Web App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* Dein vorhandenes CSS bleibt unverändert */
+    /* ----- Dein bestehendes CSS (unverändert) ----- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -180,6 +180,7 @@
 </head>
 <body>
   <div class="container">
+    
     <!-- Kundendaten Screen -->
     <div id="screen-kundendaten" class="screen active">
       <div class="header">
@@ -218,9 +219,10 @@
       </div>
       <!-- Passwort ändern -->
       <button id="btn-show-change-password" style="background-color:#555;">Passwort ändern</button>
-      <div id="operator-products-list">
-        <!-- Produktliste des Operators -->
-      </div>
+      
+      <!-- Produktliste des Operators -->
+      <div id="operator-products-list"></div>
+      
       <button id="btn-show-add-product">+ Neues Produkt hinzufügen</button>
       <div id="add-product-form" style="display:none;">
         <h3>Neues Produkt</h3>
@@ -295,22 +297,22 @@
   
   <script>
     /* ------------------ Globale Variablen ------------------ */
-    let operatorPassword = "1234";
-    let products = [];
-    let orders = JSON.parse(localStorage.getItem('orders') || '[]');
-
-    // Kundendaten, Produktauswahl etc.
+    let operatorPassword = "1234"; // Festes Passwort für Operator
+    let products = [];             // Produktliste (wird via Netlify Function geladen)
+    let orders = JSON.parse(localStorage.getItem('orders') || '[]'); // Bestellungen im localStorage
+    
+    // Kundendaten und Auswahl
     let currentCustomer = {};
     let selectedProducts = [];
     let selectedOrder = [];
-
-    // IP
+    
+    // IP holen
     let clientIP = "";
     fetch('https://api.ipify.org?format=json')
-      .then(response => response.json())
+      .then(res => res.json())
       .then(data => { clientIP = data.ip; })
-      .catch(err => { console.error("IP-Abruf fehlgeschlagen:", err); clientIP = "unbekannt"; });
-
+      .catch(() => { clientIP = "unbekannt"; });
+    
     // Navigation
     let navHistory = [];
     let currentScreen = "screen-kundendaten";
@@ -320,9 +322,7 @@
         navHistory.push(currentScreen);
       }
       currentScreen = screenId;
-      document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-      });
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
     }
 
@@ -330,22 +330,18 @@
       if (navHistory.length > 0) {
         const previousScreen = navHistory.pop();
         currentScreen = previousScreen;
-        document.querySelectorAll('.screen').forEach(screen => {
-          screen.classList.remove('active');
-        });
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(previousScreen).classList.add('active');
       }
     }
 
-    document.querySelectorAll('.back-button').forEach(btn => {
-      btn.addEventListener('click', goBack);
+    document.querySelectorAll('.back-button').forEach(btn => btn.addEventListener('click', goBack));
+    document.querySelectorAll('.footer').forEach(f => {
+      f.addEventListener('click', () => { showScreen("screen-operator-login"); });
     });
-    document.querySelectorAll('.footer').forEach(footer => {
-      footer.addEventListener('click', () => { showScreen("screen-operator-login"); });
-    });
-
+    
     /* ------------------ Kundendaten Screen ------------------ */
-    document.getElementById('form-kundendaten').addEventListener('submit', function(e) {
+    document.getElementById('form-kundendaten').addEventListener('submit', e => {
       e.preventDefault();
       const name = document.getElementById('input-name').value.trim();
       const tpNumber = document.getElementById('input-tpNumber').value.trim();
@@ -364,11 +360,11 @@
     });
 
     /* ------------------ Operator Login Screen ------------------ */
-    document.getElementById('form-operator-login').addEventListener('submit', async function(e) {
+    document.getElementById('form-operator-login').addEventListener('submit', async e => {
       e.preventDefault();
       const inputPass = document.getElementById('input-operator-password').value;
       if (inputPass === operatorPassword) {
-        // Lade Produkte aus Fauna, dann Dashboard
+        // Produkte aus Fauna laden => Dashboard
         await renderOperatorProducts();
         showScreen("screen-operator-dashboard");
       } else {
@@ -377,26 +373,29 @@
     });
 
     /* ------------------ Operator Dashboard Screen ------------------ */
+    // Produkte per GET von Netlify Function laden
     async function loadProducts() {
       try {
-        const res = await fetch('/.netlify/functions/products'); // GET
+        const res = await fetch('/.netlify/functions/products');
         if (!res.ok) throw new Error(res.statusText);
         products = await res.json();
         console.log("Produkte aus FaunaDB geladen:", products);
       } catch (err) {
-        console.error("Fehler beim Laden der Produkte aus FaunaDB:", err);
+        console.error("Fehler beim Laden der Produkte:", err);
         alert("Produkte konnten nicht geladen werden.");
       }
     }
 
+    // Produkte anzeigen (Dashboard)
     async function renderOperatorProducts() {
       await loadProducts();
       const listDiv = document.getElementById('operator-products-list');
       listDiv.innerHTML = "";
-      
+
       products.forEach((product, index) => {
         const prodDiv = document.createElement('div');
         prodDiv.classList.add('product-card');
+        
         let html = "";
         if (product.imageData) {
           html += `<img class="product-image" src="${product.imageData}" alt="${product.name}">`;
@@ -411,7 +410,7 @@
         const removeBtn = document.createElement('button');
         removeBtn.textContent = "Entfernen";
         removeBtn.style.backgroundColor = "#FF3B30";
-        removeBtn.addEventListener('click', async function() {
+        removeBtn.addEventListener('click', async () => {
           try {
             await removeProductFromFauna(product.id);
             products.splice(index, 1);
@@ -426,36 +425,35 @@
       });
     }
 
+    // Neues Produkt anlegen (POST)
     async function addProductToFauna(newProduct) {
       const response = await fetch('/.netlify/functions/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct),
       });
-      if (!response.ok) {
-        throw new Error(`Fehler beim Hinzufügen: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Fehler beim Hinzufügen: ${response.statusText}`);
       return await response.json();
     }
 
+    // Produkt entfernen (DELETE)
     async function removeProductFromFauna(productId) {
       const response = await fetch(`/.netlify/functions/products?id=${productId}`, {
         method: 'DELETE',
       });
-      if (!response.ok) {
-        throw new Error(`Fehler beim Löschen: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Fehler beim Löschen: ${response.statusText}`);
       return await response.json();
     }
 
-    document.getElementById('btn-show-add-product').addEventListener('click', function() {
+    // Neues Produkt Formular
+    document.getElementById('btn-show-add-product').addEventListener('click', () => {
       document.getElementById('add-product-form').style.display = "block";
     });
-    document.getElementById('btn-cancel-add-product').addEventListener('click', function() {
+    document.getElementById('btn-cancel-add-product').addEventListener('click', () => {
       document.getElementById('add-product-form').style.display = "none";
     });
 
-    document.getElementById('form-add-product').addEventListener('submit', async function(e) {
+    document.getElementById('form-add-product').addEventListener('submit', async e => {
       e.preventDefault();
       const name = document.getElementById('input-product-name').value.trim();
       const priceStr = document.getElementById('input-product-price').value.trim().replace(',', '.');
@@ -472,9 +470,10 @@
         return;
       }
 
+      // Bild in Base64 umwandeln
       const reader = new FileReader();
-      reader.onload = async function(event) {
-        const imageData = event.target.result;
+      reader.onload = async (evt) => {
+        const imageData = evt.target.result;
         const newProduct = { name, price, points, imageData };
         try {
           const savedProduct = await addProductToFauna(newProduct);
@@ -483,7 +482,7 @@
           document.getElementById('form-add-product').reset();
           document.getElementById('add-product-form').style.display = "none";
         } catch (err) {
-          console.error("Fehler beim Speichern des Produkts in Fauna:", err);
+          console.error("Fehler beim Speichern des Produkts:", err);
           alert("Fehler beim Speichern des Produkts.");
         }
       };
@@ -494,9 +493,11 @@
     function renderProduktList() {
       const listDiv = document.getElementById('produkt-list');
       listDiv.innerHTML = "";
+
       selectedProducts.forEach((product, index) => {
         const prodDiv = document.createElement('div');
         prodDiv.classList.add('product-card');
+
         let html = "";
         if (product.imageData) {
           html += `<img class="product-image" src="${product.imageData}" alt="${product.name}">`;
@@ -515,18 +516,18 @@
       });
     }
 
-    function decreaseQuantity(index) {
-      if (selectedProducts[index].quantity > 0) {
-        selectedProducts[index].quantity--;
+    function decreaseQuantity(i) {
+      if (selectedProducts[i].quantity > 0) {
+        selectedProducts[i].quantity--;
         renderProduktList();
       }
     }
-    function increaseQuantity(index) {
-      selectedProducts[index].quantity++;
+    function increaseQuantity(i) {
+      selectedProducts[i].quantity++;
       renderProduktList();
     }
 
-    document.getElementById('btn-submit-order').addEventListener('click', function() {
+    document.getElementById('btn-submit-order').addEventListener('click', () => {
       const orderProducts = selectedProducts.filter(p => p.quantity > 0);
       if (orderProducts.length === 0) {
         alert("Bitte wählen Sie mindestens ein Produkt aus.");
@@ -538,8 +539,8 @@
 
     /* ------------------ Zahlungsart Screen ------------------ */
     document.querySelectorAll('.payment-option').forEach(button => {
-      button.addEventListener('click', function() {
-        const paymentMethod = button.getAttribute('data-method');
+      button.addEventListener('click', () => {
+        const paymentMethod = button.dataset.method;
         let totalPrice = 0;
         let totalPoints = 0;
         selectedOrder.forEach(p => {
@@ -565,7 +566,7 @@
     function renderOrderSummary() {
       const summaryDiv = document.getElementById('order-summary');
       let html = "";
-      const filteredOrders = orders.filter(order => order.clientIP === clientIP);
+      const filteredOrders = orders.filter(o => o.clientIP === clientIP);
 
       filteredOrders.forEach((order, idx) => {
         html += `<h3>Bestellung ${idx+1}</h3>
@@ -601,24 +602,25 @@
                  <p><strong>Gesamtpunkte:</strong> ${order.totalPoints}</p>
                  <hr>`;
       });
+
       if (filteredOrders.length === 0) {
         html = "<p>Es wurden noch keine Bestellungen von Ihrer IP aufgezeichnet.</p>";
       }
       summaryDiv.innerHTML = html;
     }
 
-    document.getElementById('btn-new-order').addEventListener('click', function() {
+    document.getElementById('btn-new-order').addEventListener('click', () => {
       currentCustomer = {};
       selectedProducts = products.map(p => ({ ...p, quantity: 0 }));
       showScreen("screen-kundendaten");
     });
 
-    document.getElementById('btn-export-excel').addEventListener('click', function() {
+    document.getElementById('btn-export-excel').addEventListener('click', () => {
       exportOrdersToCSV();
     });
 
     function exportOrdersToCSV() {
-      const filteredOrders = orders.filter(order => order.clientIP === clientIP);
+      const filteredOrders = orders.filter(o => o.clientIP === clientIP);
       if (filteredOrders.length === 0) {
         alert("Keine Bestellungen vorhanden.");
         return;
@@ -640,13 +642,13 @@
     }
 
     /* ------------------ Modal: Passwort ändern ------------------ */
-    document.getElementById('btn-show-change-password').addEventListener('click', function() {
+    document.getElementById('btn-show-change-password').addEventListener('click', () => {
       document.getElementById('modal-change-password').classList.add('active');
     });
-    document.getElementById('btn-cancel-change-password').addEventListener('click', function() {
+    document.getElementById('btn-cancel-change-password').addEventListener('click', () => {
       document.getElementById('modal-change-password').classList.remove('active');
     });
-    document.getElementById('form-change-password').addEventListener('submit', function(e) {
+    document.getElementById('form-change-password').addEventListener('submit', e => {
       e.preventDefault();
       const currentPass = document.getElementById('current-password').value;
       const newPass = document.getElementById('new-password').value;

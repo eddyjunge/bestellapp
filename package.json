@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/eddyjunge/bestellapp#readme",
   "dependencies": {
+    "fauna": "^2.5.0",
     "faunadb": "^4.8.2"
   }
 }

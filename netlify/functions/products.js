@@ -1,30 +1,40 @@
-// netlify/functions/products.js
-const faunadb = require('faunadb');
-const q = faunadb.query;
+import { createClient, fql } from 'fauna';
 
-exports.handler = async (event, context) => {
-  // Im Netlify-Dashboard musst du "FAUNA_SECRET" gesetzt haben
-  const client = new faunadb.Client({ secret: process.env.FAUNA_SECRET });
+/**
+ * ACHTUNG:
+ * - Du brauchst "type": "module" in deiner package.json
+ * - "fauna" statt "faunadb"
+ * - Netlify nutzt diese Datei als ES Module
+ */
 
+// 1) Fauna-Client anlegen
+const client = createClient({
+  secret: process.env.FAUNA_SECRET,
+  // Falls du in einer EU-Region bist, könnte zusätzlich "domain" nötig sein, z. B.:
+  // domain: 'db.eu.fauna.com',
+});
+
+// 2) Netlify-Function (handler)
+export async function handler(event) {
   const method = event.httpMethod;
 
   try {
     // --------- GET (Produkte abrufen) ---------
     if (method === 'GET') {
-      const result = await client.query(
-        q.Map(
-          q.Paginate(q.Documents(q.Collection('products'))),
-          q.Lambda(x => q.Get(x))
-        )
-      );
-      // result.data ist ein Array von Fauna-Objekten
-      const data = result.data.map(item => ({
-        id: item.ref.id,
-        name: item.data.name,
-        price: item.data.price,
-        points: item.data.points,
-        imageData: item.data.imageData,
-      }));
+      // Wir holen alle Documents in "products"
+      // "all()" liest alle Seiten (Vorsicht bei sehr vielen Einträgen)
+      const result = await client.query(fql`
+        let docs = all(documents("products"))
+        docs
+      `);
+      // result ist ein Array von Objekten mit shape [{ document: {...} }, ...]
+      // Wir können es in ein reines Array mit {id, ...data} umwandeln:
+      const data = result.map((item) => {
+        return {
+          id: item.document.id,
+          ...item.document.data
+        };
+      });
 
       return {
         statusCode: 200,
@@ -34,65 +44,70 @@ exports.handler = async (event, context) => {
 
     // --------- POST (Neues Produkt hinzufügen) ---------
     if (method === 'POST') {
-      // 1) Prüfen, ob event.body vorhanden ist
+      // 1) Body prüfen
       if (!event.body) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: "Leerer Body. Hast du JSON gesendet?" }),
+          body: JSON.stringify({ error: 'Leerer Body. Hast du JSON gesendet?' }),
         };
       }
 
-      // 2) JSON.parse in try/catch, falls body kein gültiges JSON ist
+      // 2) JSON parse
       let body;
       try {
-        body = JSON.parse(event.body);
-      } catch (parseError) {
+        body = JSON.parse(event.body); // { name, price, points, imageData }
+      } catch (parseErr) {
         return {
           statusCode: 400,
           body: JSON.stringify({ error: 'Ungültiges JSON im Body.' }),
         };
       }
 
-      // 3) Eigentliche Felder auslesen
+      // 3) Dokument anlegen (FQL v10)
       const { name, price, points, imageData } = body;
+      const createResult = await client.query(fql`
+        createDocument({
+          collection: "products",
+          data: {
+            name: ${name},
+            price: ${price},
+            points: ${points},
+            imageData: ${imageData}
+          }
+        })
+      `);
+      // createResult hat shape { document: { id, data: {...} } }
+      const doc = createResult.document;
 
-      // 4) Neuen Eintrag in Fauna erstellen
-      const newItem = await client.query(
-        q.Create(
-          q.Collection('products'),
-          { data: { name, price, points, imageData } }
-        )
-      );
-      
-      // newItem enthält die neu erstellte Ressource
       return {
         statusCode: 200,
         body: JSON.stringify({
-          id: newItem.ref.id,
-          ...newItem.data
+          id: doc.id,
+          ...doc.data
         }),
       };
     }
 
     // --------- DELETE (Produkt entfernen) ---------
     if (method === 'DELETE') {
-      // Produkt-ID wird per Query-String mitgegeben: ?id=123
-      const id = event.queryStringParameters.id;
+      // Produkt-ID per ?id=123
+      const id = event.queryStringParameters?.id;
       if (!id) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: "Keine Produkt-ID angegeben" }),
+          body: JSON.stringify({ error: 'Keine Produkt-ID angegeben' }),
         };
       }
 
-      const deletedItem = await client.query(
-        q.Delete(q.Ref(q.Collection('products'), id))
-      );
+      // Wir löschen das Document in "products" mit passender ID
+      const deleteResult = await client.query(fql`
+        deleteDocument(document("products", ${id}))
+      `);
+      // deleteResult: { document: { id, data } } oder null, wenn schon gelöscht
 
-      // deletedItem enthält das gelöschte Dokument
       return {
         statusCode: 200,
-        body: JSON.stringify({ id: deletedItem.ref.id }),
+        body: JSON.stringify(deleteResult),
       };
     }
 
@@ -109,4 +124,4 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: err.message }),
     };
   }
-};
+}
