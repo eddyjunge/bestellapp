@@ -1,10 +1,13 @@
-import { createClient, fql } from "fauna";
+import faunadb from "faunadb";
 
-// Fauna-Client initialisieren (verwende ggf. den richtigen Domain-Wert, z.B. für EU: 'db.eu.fauna.com')
-const client = createClient({
+// Den FaunaDB-Client instanziieren
+const client = new faunadb.Client({
   secret: process.env.FAUNA_SECRET,
-  // domain: 'db.eu.fauna.com',
+  // Optional: domain: 'db.eu.fauna.com',
 });
+
+// Alias für die Query-Funktionen
+const q = faunadb.query;
 
 export async function handler(event, context) {
   const method = event.httpMethod;
@@ -12,14 +15,13 @@ export async function handler(event, context) {
   try {
     // GET: Alle Produkte abrufen
     if (method === "GET") {
-      // Verwende Paginate, Map und Lambda, um alle Dokumente aus der Collection "products" zu holen
-      const result = await client.query(fql`
-        Map(
-          Paginate(Documents(Collection("products"))),
-          Lambda("ref", Get(Var("ref")))
+      const result = await client.query(
+        q.Map(
+          q.Paginate(q.Documents(q.Collection("products"))),
+          q.Lambda("ref", q.Get(q.Var("ref")))
         )
-      `);
-      // Das Ergebnis enthält ein Objekt mit einer data-Eigenschaft
+      );
+      // Das Ergebnis enthält in result.data alle Dokumente
       const data = result.data.map(doc => ({
         id: doc.ref.id,
         ...doc.data
@@ -38,7 +40,6 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Leerer Body. Hast du JSON gesendet?" })
         };
       }
-      
       let bodyData;
       try {
         bodyData = JSON.parse(event.body);
@@ -51,24 +52,17 @@ export async function handler(event, context) {
       
       const { name, price, points, imageData } = bodyData;
       
-      // Mit der Create()-Funktion ein neues Dokument in der Collection "products" erstellen
-      const createResult = await client.query(fql`
-        Create(Collection("products"), {
-          data: {
-            name: ${name},
-            price: ${price},
-            points: ${points},
-            imageData: ${imageData}
-          }
+      const createResult = await client.query(
+        q.Create(q.Collection("products"), {
+          data: { name, price, points, imageData }
         })
-      `);
-      // Das Erstellungsresultat enthält unter anderem den Verweis (ref) und die Daten
-      const doc = createResult;
+      );
+      
       return {
         statusCode: 200,
         body: JSON.stringify({
-          id: doc.ref.id,
-          ...doc.data
+          id: createResult.ref.id,
+          ...createResult.data
         })
       };
     }
@@ -82,17 +76,16 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Keine Produkt-ID angegeben" })
         };
       }
-      // Lösche das Dokument über den Ref-Aufbau: Ref(Collection("products"), id)
-      const delResult = await client.query(fql`
-        Delete(Ref(Collection("products"), ${id}))
-      `);
+      const delResult = await client.query(
+        q.Delete(q.Ref(q.Collection("products"), id))
+      );
       return {
         statusCode: 200,
         body: JSON.stringify(delResult)
       };
     }
-    
-    // Für andere HTTP-Methoden:
+
+    // Andere HTTP-Methoden werden nicht erlaubt
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })
@@ -104,4 +97,3 @@ export async function handler(event, context) {
       body: JSON.stringify({ error: err.message })
     };
   }
-}
