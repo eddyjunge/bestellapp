@@ -5,7 +5,7 @@
   <title>Minimalistische Web App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* Globaler Reset & Basis-Styles */
+    /* Dein vorhandenes CSS bleibt unverändert */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -25,7 +25,6 @@
       position: relative;
       overflow: hidden;
     }
-    /* Screens & Animation */
     .screen {
       display: none;
       opacity: 0;
@@ -36,7 +35,6 @@
     @keyframes fadeIn {
       to { opacity: 1; transform: translateY(0); }
     }
-    /* Header & Zurück-Knopf */
     .header {
       display: flex;
       align-items: center;
@@ -58,7 +56,6 @@
       font-size: 24px;
       font-weight: 600;
     }
-    /* Formularelemente */
     input[type="text"],
     input[type="email"],
     input[type="password"],
@@ -72,7 +69,6 @@
       transition: border-color 0.3s;
     }
     input:focus { border-color: #007aff; outline: none; }
-    /* File Input: ausblenden – stattdessen ein gestyltes Label */
     input[type="file"] { display: none; }
     .label-file {
       display: inline-block;
@@ -86,7 +82,6 @@
       margin: 8px 0;
     }
     .label-file:hover { background-color: #e0e0e0; }
-    /* Buttons */
     button {
       padding: 12px 20px;
       border: none;
@@ -109,7 +104,6 @@
       text-decoration: underline;
       padding: 0;
     }
-    /* Footer – klickbar, führt zum Operator‑Login */
     .footer {
       text-align: center;
       font-size: 12px;
@@ -119,7 +113,6 @@
       transition: color 0.3s;
     }
     .footer:hover { color: #007aff; }
-    /* Produktkarten (Operator-Dashboard & Produktauswahl) */
     .product-card {
       border: 1px solid #eee;
       border-radius: 12px;
@@ -141,7 +134,6 @@
       border-radius: 8px;
       margin-bottom: 8px;
     }
-    /* Produktauswahl Grid: bis zu 3 Spalten, responsive */
     #produkt-list {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -152,7 +144,6 @@
       .title { font-size: 20px; }
       button { font-size: 14px; }
     }
-    /* Bestellübersicht: Tabelle */
     .order-table {
       width: 100%;
       border-collapse: collapse;
@@ -166,7 +157,6 @@
       white-space: nowrap;
     }
     .order-table th { background-color: #f2f2f2; }
-    /* Modal für Passwortänderung */
     .modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -226,10 +216,10 @@
         <button class="back-button" id="back-operator-dashboard">&larr; Zurück</button>
         <div class="title">Operator Dashboard</div>
       </div>
-      <!-- Passwort ändern (nur im Dashboard) -->
+      <!-- Passwort ändern -->
       <button id="btn-show-change-password" style="background-color:#555;">Passwort ändern</button>
       <div id="operator-products-list">
-        <!-- Hier wird die Produktliste angezeigt -->
+        <!-- Produktliste des Operators -->
       </div>
       <button id="btn-show-add-product">+ Neues Produkt hinzufügen</button>
       <div id="add-product-form" style="display:none;">
@@ -254,7 +244,7 @@
         <div class="title">Produktauswahl</div>
       </div>
       <div id="produkt-list">
-        <!-- Hier werden die Produkte im Grid angezeigt -->
+        <!-- Hier werden die Produkte gerendert -->
       </div>
       <button id="btn-submit-order">Bestellung abschließen</button>
       <div class="footer" id="footer-produktauswahl">PM DSC Offenbach am Main</div>
@@ -280,7 +270,7 @@
         <div class="title">Bestellübersicht</div>
       </div>
       <div id="order-summary">
-        <!-- Hier werden die Bestellungen (nur die des Clients, basierend auf IP) als Tabelle angezeigt -->
+        <!-- Bestellungen (nur von dieser IP) -->
       </div>
       <button id="btn-export-excel">Bestellungen als Excel exportieren</button>
       <button id="btn-new-order">Neue Bestellung</button>
@@ -289,7 +279,7 @@
     
   </div><!-- Ende Container -->
   
-  <!-- Modal für Passwortänderung -->
+  <!-- Modal Passwort ändern -->
   <div id="modal-change-password" class="modal">
     <div class="modal-content">
       <h3>Passwort ändern</h3>
@@ -304,23 +294,27 @@
   </div>
   
   <script>
-    /* ----- Globale Variablen & Einstellungen ----- */
-    let operatorPassword = localStorage.getItem('operatorPassword') || "1234";
-    localStorage.setItem('operatorPassword', operatorPassword);
-    
-    let products = JSON.parse(localStorage.getItem('products') || '[]');
+    /* ------------------ Globale Variablen ------------------ */
+    // Wir nutzen hier nur noch eine feste Variable für das Operatorpasswort.
+    // (Wenn du das auch sicherheitshalber in Fauna oder Env-Variablen haben möchtest,
+    //  musst du es ähnlich wie die Produkte über eine Netlify Function regeln.)
+    let operatorPassword = "1234";
+
+    // Produkte nur noch als Array im Speicher. Laden/speichern über Netlify Functions.
+    let products = [];
+
+    // Bestellungen (bleiben hier im localStorage, falls du das so beibehalten willst)
     let orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    
-    // Aktueller Kunde (hier zusätzlich optional: ip wird gespeichert)
+
+    // Aktueller Kunde
     let currentCustomer = {};
-    // Kopie der Produkte mit quantity-Feld (für die Produktauswahl)
+    // Kopie der Produkte mit quantity-Feld für Produktauswahl
     let selectedProducts = [];
-    // Enthält die Produkte, die bei Bestellabschluss bestellt werden
+    // Die Auswahl an Produkten, die der Kunde bestellt
     let selectedOrder = [];
-    
-    // Globale Variable für die Client-IP
+
+    // Client-IP holen (z. B. über ipify)
     let clientIP = "";
-    // Hole die öffentliche IP des Clients (z. B. über ipify)
     fetch('https://api.ipify.org?format=json')
       .then(response => response.json())
       .then(data => {
@@ -331,12 +325,11 @@
         console.error("IP-Abruf fehlgeschlagen:", err);
         clientIP = "unbekannt";
       });
-    
+
+    // Navigation
     let navHistory = [];
     let currentScreen = "screen-kundendaten";
-    
-    // Angepasste showScreen-Funktion: Beim Aufruf des Produktauswahl-Screens
-    // wird die aktuelle Produktliste (aus localStorage) in selectedProducts integriert.
+
     function showScreen(screenId, pushHistory = true) {
       if (pushHistory && currentScreen && currentScreen !== screenId) {
         navHistory.push(currentScreen);
@@ -346,22 +339,8 @@
         screen.classList.remove('active');
       });
       document.getElementById(screenId).classList.add('active');
-      
-      // Falls der Produktauswahl-Screen angezeigt wird, aktuelle Produkte integrieren
-      if(screenId === "screen-produktauswahl") {
-        const latestProducts = JSON.parse(localStorage.getItem('products') || '[]');
-        // Füge neu hinzugefügte Produkte hinzu, sofern noch nicht in selectedProducts enthalten
-        latestProducts.forEach(product => {
-          if (!selectedProducts.find(p => p.id === product.id)) {
-            selectedProducts.push({ ...product, quantity: 0 });
-          }
-        });
-        // Entferne Produkte, die nicht mehr existieren
-        selectedProducts = selectedProducts.filter(p => latestProducts.find(lp => lp.id === p.id));
-        renderProduktList();
-      }
     }
-    
+
     function goBack() {
       if (navHistory.length > 0) {
         const previousScreen = navHistory.pop();
@@ -372,16 +351,16 @@
         document.getElementById(previousScreen).classList.add('active');
       }
     }
-    
+
     document.querySelectorAll('.back-button').forEach(btn => {
       btn.addEventListener('click', goBack);
     });
-    
+
     document.querySelectorAll('.footer').forEach(footer => {
       footer.addEventListener('click', () => { showScreen("screen-operator-login"); });
     });
-    
-    /* ----- Kundendaten Screen ----- */
+
+    /* ------------------ Kundendaten Screen ------------------ */
     document.getElementById('form-kundendaten').addEventListener('submit', function(e) {
       e.preventDefault();
       const name = document.getElementById('input-name').value.trim();
@@ -390,10 +369,9 @@
       const email = document.getElementById('input-email').value.trim().toLowerCase();
       const wechatId = document.getElementById('input-wechatId').value.trim();
       
-      if(name && tpNumber && phone && email) {
-        // Zusätzlich wird hier auch die Client-IP gespeichert (sofern bereits abgerufen)
+      if (name && tpNumber && phone && email) {
         currentCustomer = { name, tpNumber, phone, email, wechatId, ip: clientIP };
-        // Erzeuge eine Kopie der Produkte mit quantity = 0
+        // selectedProducts = Kopie aller Produkte mit quantity=0
         selectedProducts = products.map(p => ({ ...p, quantity: 0 }));
         renderProduktList();
         showScreen("screen-produktauswahl");
@@ -401,28 +379,47 @@
         alert("Bitte alle erforderlichen Felder ausfüllen.");
       }
     });
-    
-    /* ----- Operator Login Screen ----- */
-    document.getElementById('form-operator-login').addEventListener('submit', function(e) {
+
+    /* ------------------ Operator Login Screen ------------------ */
+    document.getElementById('form-operator-login').addEventListener('submit', async function(e) {
       e.preventDefault();
       const inputPass = document.getElementById('input-operator-password').value;
-      if(inputPass === operatorPassword) {
-        renderOperatorProducts();
+      if (inputPass === operatorPassword) {
+        // Bevor wir ins Dashboard gehen, Produkte aus Fauna laden:
+        await renderOperatorProducts();
         showScreen("screen-operator-dashboard");
       } else {
         alert("Ungültiges Passwort.");
       }
     });
-    
-    /* ----- Operator Dashboard Screen ----- */
-    function renderOperatorProducts() {
+
+    /* ------------------ Operator Dashboard Screen ------------------ */
+    // Lade Produkte aus FaunaDB und rendere sie
+    async function loadProducts() {
+      try {
+        const res = await fetch('/.netlify/functions/products'); // GET
+        if (!res.ok) throw new Error(res.statusText);
+        products = await res.json();
+        console.log("Produkte aus FaunaDB geladen:", products);
+      } catch (err) {
+        console.error("Fehler beim Laden der Produkte aus FaunaDB:", err);
+        alert("Produkte konnten nicht geladen werden.");
+      }
+    }
+
+    async function renderOperatorProducts() {
+      // Produkte laden
+      await loadProducts();
+
+      // Im DOM rendern
       const listDiv = document.getElementById('operator-products-list');
       listDiv.innerHTML = "";
+      
       products.forEach((product, index) => {
         const prodDiv = document.createElement('div');
         prodDiv.classList.add('product-card');
         let html = "";
-        if(product.imageData) {
+        if (product.imageData) {
           html += `<img class="product-image" src="${product.imageData}" alt="${product.name}">`;
         } else {
           html += `<div style="width:100%;height:100px;background:#eee;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;">Kein Bild</div>`;
@@ -431,67 +428,102 @@
                  Preis: ${parseFloat(product.price).toFixed(2)} €<br>
                  Punkte: ${product.points}<br>`;
         prodDiv.innerHTML = html;
+
         const removeBtn = document.createElement('button');
         removeBtn.textContent = "Entfernen";
         removeBtn.style.backgroundColor = "#FF3B30";
-        removeBtn.addEventListener('click', function(){
-          products.splice(index, 1);
-          updateProductsStorage();
-          renderOperatorProducts();
+        
+        removeBtn.addEventListener('click', async function() {
+          try {
+            await removeProductFromFauna(product.id);
+            // Lokal im Array entfernen
+            products.splice(index, 1);
+            // Neu rendern
+            renderOperatorProducts();
+          } catch (err) {
+            console.error("Fehler beim Löschen des Produkts:", err);
+          }
         });
+
         prodDiv.appendChild(removeBtn);
         listDiv.appendChild(prodDiv);
       });
     }
-    
-    document.getElementById('btn-show-add-product').addEventListener('click', function(){
+
+    // Produkt per POST an Fauna schicken
+    async function addProductToFauna(newProduct) {
+      const response = await fetch('/.netlify/functions/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProduct),
+      });
+      if (!response.ok) {
+        throw new Error(`Fehler beim Hinzufügen: ${response.statusText}`);
+      }
+      return await response.json(); // das neu gespeicherte Produkt
+    }
+
+    // Produkt per DELETE in Fauna entfernen
+    async function removeProductFromFauna(productId) {
+      const response = await fetch(`/.netlify/functions/products?id=${productId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(`Fehler beim Löschen: ${response.statusText}`);
+      }
+      return await response.json();
+    }
+
+    document.getElementById('btn-show-add-product').addEventListener('click', function() {
       document.getElementById('add-product-form').style.display = "block";
     });
-    
-    document.getElementById('btn-cancel-add-product').addEventListener('click', function(){
+
+    document.getElementById('btn-cancel-add-product').addEventListener('click', function() {
       document.getElementById('add-product-form').style.display = "none";
     });
-    
-    document.getElementById('form-add-product').addEventListener('submit', function(e) {
+
+    document.getElementById('form-add-product').addEventListener('submit', async function(e) {
       e.preventDefault();
       const name = document.getElementById('input-product-name').value.trim();
       const priceStr = document.getElementById('input-product-price').value.trim().replace(',', '.');
       const points = parseInt(document.getElementById('input-product-points').value.trim()) || 0;
       const imageInput = document.getElementById('input-product-image');
-      
-      if(name && priceStr && imageInput.files && imageInput.files[0]) {
-        const price = parseFloat(priceStr);
-        if(isNaN(price)) {
-          alert("Ungültiger Preis!");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const imageData = event.target.result;
-          const newProduct = {
-            id: Date.now().toString(),
-            name,
-            price,
-            points,
-            imageData
-          };
-          products.push(newProduct);
-          updateProductsStorage();
+
+      if (!name || !priceStr || !imageInput.files[0]) {
+        alert("Bitte alle Felder ausfüllen und ein Bild auswählen.");
+        return;
+      }
+      const price = parseFloat(priceStr);
+      if (isNaN(price)) {
+        alert("Ungültiger Preis!");
+        return;
+      }
+
+      // Bild in Base64 umwandeln
+      const reader = new FileReader();
+      reader.onload = async function(event) {
+        const imageData = event.target.result;
+        const newProduct = { name, price, points, imageData };
+        
+        try {
+          // An Fauna senden
+          const savedProduct = await addProductToFauna(newProduct);
+          // Lokal ins Array hinzufügen
+          products.push(savedProduct);
+          // Neu rendern
           renderOperatorProducts();
+          // Formular zurücksetzen
           document.getElementById('form-add-product').reset();
           document.getElementById('add-product-form').style.display = "none";
-        };
-        reader.readAsDataURL(imageInput.files[0]);
-      } else {
-        alert("Bitte alle Felder ausfüllen und ein Bild auswählen.");
-      }
+        } catch (err) {
+          console.error("Fehler beim Speichern des Produkts in Fauna:", err);
+          alert("Fehler beim Speichern des Produkts.");
+        }
+      };
+      reader.readAsDataURL(imageInput.files[0]);
     });
-    
-    function updateProductsStorage() {
-      localStorage.setItem('products', JSON.stringify(products));
-    }
-    
-    /* ----- Produktauswahl Screen ----- */
+
+    /* ------------------ Produktauswahl Screen ------------------ */
     function renderProduktList() {
       const listDiv = document.getElementById('produkt-list');
       listDiv.innerHTML = "";
@@ -499,7 +531,7 @@
         const prodDiv = document.createElement('div');
         prodDiv.classList.add('product-card');
         let html = "";
-        if(product.imageData) {
+        if (product.imageData) {
           html += `<img class="product-image" src="${product.imageData}" alt="${product.name}">`;
         } else {
           html += `<div style="width:100%;height:80px;background:#eee;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;">Kein Bild</div>`;
@@ -515,33 +547,31 @@
         listDiv.appendChild(prodDiv);
       });
     }
-    
+
     function decreaseQuantity(index) {
-      if(selectedProducts[index].quantity > 0) {
+      if (selectedProducts[index].quantity > 0) {
         selectedProducts[index].quantity--;
         renderProduktList();
       }
     }
-    
     function increaseQuantity(index) {
       selectedProducts[index].quantity++;
       renderProduktList();
     }
-    
-    // Beim Bestellabschluss wird in selectedOrder nur die Auswahl (Produkte mit Menge > 0) übernommen
-    document.getElementById('btn-submit-order').addEventListener('click', function(){
+
+    document.getElementById('btn-submit-order').addEventListener('click', function() {
       const orderProducts = selectedProducts.filter(p => p.quantity > 0);
-      if(orderProducts.length === 0) {
+      if (orderProducts.length === 0) {
         alert("Bitte wählen Sie mindestens ein Produkt aus.");
         return;
       }
       selectedOrder = orderProducts;
       showScreen("screen-zahlungsart");
     });
-    
-    /* ----- Zahlungsart Screen ----- */
+
+    /* ------------------ Zahlungsart Screen ------------------ */
     document.querySelectorAll('.payment-option').forEach(button => {
-      button.addEventListener('click', function(){
+      button.addEventListener('click', function() {
         const paymentMethod = button.getAttribute('data-method');
         let totalPrice = 0;
         let totalPoints = 0;
@@ -555,25 +585,21 @@
           paymentMethod,
           totalPrice,
           totalPoints,
-          clientIP: clientIP   // Speichere die Client-IP mit der Bestellung
+          clientIP
         };
         orders.push(order);
-        updateOrdersStorage();
+        localStorage.setItem('orders', JSON.stringify(orders));
         renderOrderSummary();
         showScreen("screen-bestelluebersicht");
       });
     });
-    
-    function updateOrdersStorage() {
-      localStorage.setItem('orders', JSON.stringify(orders));
-    }
-    
-    /* ----- Bestellübersicht Screen ----- */
-    // Es werden nur die Bestellungen angezeigt, bei denen die gespeicherte IP mit der aktuellen übereinstimmt
+
+    /* ------------------ Bestellübersicht Screen ------------------ */
     function renderOrderSummary() {
       const summaryDiv = document.getElementById('order-summary');
       let html = "";
       const filteredOrders = orders.filter(order => order.clientIP === clientIP);
+
       filteredOrders.forEach((order, idx) => {
         html += `<h3>Bestellung ${idx+1}</h3>
                  <table class="order-table">
@@ -582,7 +608,7 @@
                    <tr><td>TP-Nummer</td><td>${order.customer.tpNumber}</td></tr>
                    <tr><td>Telefon</td><td>${order.customer.phone}</td></tr>
                    <tr><td>E-Mail</td><td>${order.customer.email}</td></tr>`;
-        if(order.customer.wechatId) {
+        if (order.customer.wechatId) {
           html += `<tr><td>WeChat ID</td><td>${order.customer.wechatId}</td></tr>`;
         }
         html += `<tr><td>Zahlungsart</td><td>${order.paymentMethod}</td></tr>
@@ -608,43 +634,33 @@
                  <p><strong>Gesamtpunkte:</strong> ${order.totalPoints}</p>
                  <hr>`;
       });
-      if(filteredOrders.length === 0) {
+      if (filteredOrders.length === 0) {
         html = "<p>Es wurden noch keine Bestellungen von Ihrer IP aufgezeichnet.</p>";
       }
       summaryDiv.innerHTML = html;
     }
-    
-    // Beim Starten einer neuen Bestellung wird currentCustomer zurückgesetzt und die Produktauswahl neu initialisiert
-    document.getElementById('btn-new-order').addEventListener('click', function(){
+
+    document.getElementById('btn-new-order').addEventListener('click', function() {
       currentCustomer = {};
       selectedProducts = products.map(p => ({ ...p, quantity: 0 }));
       showScreen("screen-kundendaten");
     });
-    
-    document.getElementById('btn-export-excel').addEventListener('click', function(){
+
+    document.getElementById('btn-export-excel').addEventListener('click', function() {
       exportOrdersToCSV();
     });
-    
-    // Exportiere nur Bestellungen des aktuellen Clients (nach IP) als CSV
-    // Es werden zusätzlich die Spalten "Gesamtsumme" und "Gesamtpunkte" ausgegeben.
+
     function exportOrdersToCSV() {
       const filteredOrders = orders.filter(order => order.clientIP === clientIP);
-      if(filteredOrders.length === 0) {
+      if (filteredOrders.length === 0) {
         alert("Keine Bestellungen vorhanden.");
         return;
       }
       let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += `"Name";"TP-Nummer";"Telefon";"E-Mail";"WeChat ID";"Zahlungsart";"Produkt";"Anzahl";"Preis";"Punkte";"Gesamtsumme";"Gesamtpunkte"\n`;
+      csvContent += `"Name";"TP-Nummer";"Telefon";"E-Mail";"WeChat ID";"Zahlungsart";"Produkt";"Anzahl";"Preis";"Punkte"\n`;
       filteredOrders.forEach(order => {
-        order.products.forEach((product, index) => {
-          let totalPrice = "";
-          let totalPoints = "";
-          // In der ersten Zeile der Bestellung die Totals anzeigen
-          if(index === 0) {
-            totalPrice = parseFloat(order.totalPrice).toFixed(2);
-            totalPoints = order.totalPoints;
-          }
-          csvContent += `"${order.customer.name}";"${order.customer.tpNumber}";"${order.customer.phone}";"${order.customer.email}";"${order.customer.wechatId || ""}";"${order.paymentMethod}";"${product.name}";"${product.quantity}";"${product.price}";"${product.points}";"${totalPrice}";"${totalPoints}"\n`;
+        order.products.forEach(product => {
+          csvContent += `"${order.customer.name}";"${order.customer.tpNumber}";"${order.customer.phone}";"${order.customer.email}";"${order.customer.wechatId || ""}";"${order.paymentMethod}";"${product.name}";"${product.quantity}";"${product.price}";"${product.points}"\n`;
         });
       });
       const encodedUri = encodeURI(csvContent);
@@ -655,34 +671,32 @@
       link.click();
       document.body.removeChild(link);
     }
-    
-    /* ----- Modal: Passwortänderung (Operator Dashboard) ----- */
-    document.getElementById('btn-show-change-password').addEventListener('click', function(){
+
+    /* ------------------ Modal: Passwort ändern ------------------ */
+    document.getElementById('btn-show-change-password').addEventListener('click', function() {
       document.getElementById('modal-change-password').classList.add('active');
     });
-    document.getElementById('btn-cancel-change-password').addEventListener('click', function(){
+    document.getElementById('btn-cancel-change-password').addEventListener('click', function() {
       document.getElementById('modal-change-password').classList.remove('active');
     });
-    document.getElementById('form-change-password').addEventListener('submit', function(e){
+    document.getElementById('form-change-password').addEventListener('submit', function(e) {
       e.preventDefault();
       const currentPass = document.getElementById('current-password').value;
       const newPass = document.getElementById('new-password').value;
       const confirmNewPass = document.getElementById('confirm-new-password').value;
-      if(currentPass !== operatorPassword) {
+      if (currentPass !== operatorPassword) {
         alert("Aktuelles Passwort ist falsch.");
         return;
       }
-      if(newPass !== confirmNewPass) {
+      if (newPass !== confirmNewPass) {
         alert("Neue Passwörter stimmen nicht überein.");
         return;
       }
       operatorPassword = newPass;
-      localStorage.setItem('operatorPassword', operatorPassword);
       alert("Passwort erfolgreich geändert.");
       document.getElementById('modal-change-password').classList.remove('active');
       document.getElementById('form-change-password').reset();
     });
-    
   </script>
 </body>
 </html>
