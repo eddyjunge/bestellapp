@@ -1,59 +1,49 @@
 import { createClient, fql } from "fauna";
 
-// 1) Fauna-Client anlegen
+// Fauna-Client initialisieren
 const client = createClient({
   secret: process.env.FAUNA_SECRET,
-  // Falls du in der EU-Region bist, setze domain: 'db.eu.fauna.com'
+  // Falls du in einer EU-Region bist, setze hier z. B.: domain: 'db.eu.fauna.com'
 });
 
-// 2) Netlify Function
 export async function handler(event, context) {
   const method = event.httpMethod;
 
   try {
-    // --------- GET (Produkte abrufen) ---------
+    // GET – Alle Produkte abrufen
     if (method === "GET") {
-      // Wir lesen alle Dokumente aus "products" via FQL v10
       const result = await client.query(fql`
         let docs = all(documents("products"))
         docs
       `);
-
-      // result ist ein Array von { document: { id, data } }
       const data = result.map(item => ({
         id: item.document.id,
         ...item.document.data
       }));
-
       return {
         statusCode: 200,
         body: JSON.stringify(data)
       };
     }
 
-    // --------- POST (Neues Produkt hinzufügen) ---------
+    // POST – Neues Produkt hinzufügen
     if (method === "POST") {
-      // Body prüfen
       if (!event.body) {
         return {
           statusCode: 400,
           body: JSON.stringify({ error: "Leerer Body. Hast du JSON gesendet?" })
         };
       }
-      // JSON parse
       let bodyData;
       try {
-        bodyData = JSON.parse(event.body); // { name, price, ... }
+        bodyData = JSON.parse(event.body);
       } catch {
         return {
           statusCode: 400,
           body: JSON.stringify({ error: "Ungültiges JSON im Body." })
         };
       }
-
       const { name, price, points, imageData } = bodyData;
-
-      // Dokument in Fauna erstellen
       const createResult = await client.query(fql`
         createDocument({
           collection: "products",
@@ -65,9 +55,7 @@ export async function handler(event, context) {
           }
         })
       `);
-      // createResult: { document: { id, data } }
       const doc = createResult.document;
-
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -77,7 +65,7 @@ export async function handler(event, context) {
       };
     }
 
-    // --------- DELETE (Produkt entfernen) ---------
+    // DELETE – Produkt entfernen
     if (method === "DELETE") {
       const id = event.queryStringParameters?.id;
       if (!id) {
@@ -86,20 +74,16 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Keine Produkt-ID angegeben" })
         };
       }
-
-      // Dokument löschen
       const delResult = await client.query(fql`
         deleteDocument(document("products", ${id}))
       `);
-
-      // delResult: { document: { id, data } } oder null
       return {
         statusCode: 200,
         body: JSON.stringify(delResult)
       };
     }
 
-    // --------- Andere Methoden -> 405 ---------
+    // Andere HTTP-Methoden nicht erlaubt
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })

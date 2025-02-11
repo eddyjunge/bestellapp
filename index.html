@@ -5,7 +5,7 @@
   <title>Minimalistische Web App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ----- Dein bestehendes CSS (unverändert) ----- */
+    /* ----- Dein bestehendes CSS ----- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -276,12 +276,14 @@
       </div>
       <button id="btn-export-excel">Bestellungen als Excel exportieren</button>
       <button id="btn-new-order">Neue Bestellung</button>
+      <!-- Neuer Button zum Löschen alter Bestellungen -->
+      <button id="btn-clear-orders">Alte Bestellungen löschen</button>
       <div class="footer" id="footer-bestelluebersicht">PM DSC Offenbach am Main</div>
     </div>
     
   </div><!-- Ende Container -->
   
-  <!-- Modal Passwort ändern -->
+  <!-- Modal: Passwort ändern -->
   <div id="modal-change-password" class="modal">
     <div class="modal-content">
       <h3>Passwort ändern</h3>
@@ -299,7 +301,7 @@
     /* ------------------ Globale Variablen ------------------ */
     let operatorPassword = "1234"; // Festes Passwort für Operator
     let products = [];             // Produktliste (wird via Netlify Function geladen)
-    let orders = JSON.parse(localStorage.getItem('orders') || '[]'); // Bestellungen im localStorage
+    let orders = JSON.parse(localStorage.getItem('orders') || '[]');
     
     // Kundendaten und Auswahl
     let currentCustomer = {};
@@ -364,7 +366,6 @@
       e.preventDefault();
       const inputPass = document.getElementById('input-operator-password').value;
       if (inputPass === operatorPassword) {
-        // Produkte aus Fauna laden => Dashboard
         await renderOperatorProducts();
         showScreen("screen-operator-dashboard");
       } else {
@@ -373,7 +374,6 @@
     });
 
     /* ------------------ Operator Dashboard Screen ------------------ */
-    // Produkte per GET von Netlify Function laden
     async function loadProducts() {
       try {
         const res = await fetch('/.netlify/functions/products');
@@ -386,7 +386,6 @@
       }
     }
 
-    // Produkte anzeigen (Dashboard)
     async function renderOperatorProducts() {
       await loadProducts();
       const listDiv = document.getElementById('operator-products-list');
@@ -425,7 +424,6 @@
       });
     }
 
-    // Neues Produkt anlegen (POST)
     async function addProductToFauna(newProduct) {
       const response = await fetch('/.netlify/functions/products', {
         method: 'POST',
@@ -436,7 +434,6 @@
       return await response.json();
     }
 
-    // Produkt entfernen (DELETE)
     async function removeProductFromFauna(productId) {
       const response = await fetch(`/.netlify/functions/products?id=${productId}`, {
         method: 'DELETE',
@@ -445,7 +442,6 @@
       return await response.json();
     }
 
-    // Neues Produkt Formular
     document.getElementById('btn-show-add-product').addEventListener('click', () => {
       document.getElementById('add-product-form').style.display = "block";
     });
@@ -470,7 +466,6 @@
         return;
       }
 
-      // Bild in Base64 umwandeln
       const reader = new FileReader();
       reader.onload = async (evt) => {
         const imageData = evt.target.result;
@@ -613,6 +608,17 @@
       currentCustomer = {};
       selectedProducts = products.map(p => ({ ...p, quantity: 0 }));
       showScreen("screen-kundendaten");
+    });
+
+    // Neuer Event Listener: Alte Bestellungen löschen
+    document.getElementById('btn-clear-orders').addEventListener('click', () => {
+      if (confirm("Möchtest du wirklich alle alten Bestellungen löschen?")) {
+        // Lösche alle Bestellungen, die der aktuellen IP zugeordnet sind
+        orders = orders.filter(o => o.clientIP !== clientIP);
+        localStorage.setItem('orders', JSON.stringify(orders));
+        renderOrderSummary();
+        alert("Alte Bestellungen wurden gelöscht.");
+      }
     });
 
     document.getElementById('btn-export-excel').addEventListener('click', () => {

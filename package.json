@@ -1,24 +1,20 @@
 {
-  "name": "neuer-ordner",
+  "name": "bestellapp",
   "version": "1.0.0",
-  "description": "# dsc-offenbach-bestellapp",
+  "description": "DSC Offenbach Bestell App",
   "main": "index.js",
   "scripts": {
     "test": "echo "Error: no test specified" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eddyjunge/bestellapp.git"
+    "url": "https://github.com/eddyjunge/bestellapp.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",             // <-- Wichtig! So kann Node ES-Module verarbeiten
-  "bugs": {
-    "url": "https://github.com/eddyjunge/bestellapp/issues"
-  },
-  "homepage": "https://github.com/eddyjunge/bestellapp#readme",
+  "type": "module",
   "dependencies": {
-    "fauna": "^1.1.6"           // <-- Neues FQL v10-SDK
+    "fauna": "^2.5.0"
   }
 }
