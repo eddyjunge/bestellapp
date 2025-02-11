@@ -1,24 +1,28 @@
 import { createClient, fql } from "fauna";
 
-// Fauna-Client initialisieren
+// Fauna-Client initialisieren (verwende ggf. den richtigen Domain-Wert, z.B. für EU: 'db.eu.fauna.com')
 const client = createClient({
   secret: process.env.FAUNA_SECRET,
-  // Falls du in einer EU-Region bist, setze hier z. B.: domain: 'db.eu.fauna.com'
+  // domain: 'db.eu.fauna.com',
 });
 
 export async function handler(event, context) {
   const method = event.httpMethod;
-
+  
   try {
-    // GET – Alle Produkte abrufen
+    // GET: Alle Produkte abrufen
     if (method === "GET") {
+      // Verwende Paginate, Map und Lambda, um alle Dokumente aus der Collection "products" zu holen
       const result = await client.query(fql`
-        let docs = all(documents("products"))
-        docs
+        Map(
+          Paginate(Documents(Collection("products"))),
+          Lambda("ref", Get(Var("ref")))
+        )
       `);
-      const data = result.map(item => ({
-        id: item.document.id,
-        ...item.document.data
+      // Das Ergebnis enthält ein Objekt mit einer data-Eigenschaft
+      const data = result.data.map(doc => ({
+        id: doc.ref.id,
+        ...doc.data
       }));
       return {
         statusCode: 200,
@@ -26,7 +30,7 @@ export async function handler(event, context) {
       };
     }
 
-    // POST – Neues Produkt hinzufügen
+    // POST: Neues Produkt anlegen
     if (method === "POST") {
       if (!event.body) {
         return {
@@ -34,6 +38,7 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Leerer Body. Hast du JSON gesendet?" })
         };
       }
+      
       let bodyData;
       try {
         bodyData = JSON.parse(event.body);
@@ -43,10 +48,12 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Ungültiges JSON im Body." })
         };
       }
+      
       const { name, price, points, imageData } = bodyData;
+      
+      // Mit der Create()-Funktion ein neues Dokument in der Collection "products" erstellen
       const createResult = await client.query(fql`
-        createDocument({
-          collection: "products",
+        Create(Collection("products"), {
           data: {
             name: ${name},
             price: ${price},
@@ -55,17 +62,18 @@ export async function handler(event, context) {
           }
         })
       `);
-      const doc = createResult.document;
+      // Das Erstellungsresultat enthält unter anderem den Verweis (ref) und die Daten
+      const doc = createResult;
       return {
         statusCode: 200,
         body: JSON.stringify({
-          id: doc.id,
+          id: doc.ref.id,
           ...doc.data
         })
       };
     }
 
-    // DELETE – Produkt entfernen
+    // DELETE: Ein Produkt löschen
     if (method === "DELETE") {
       const id = event.queryStringParameters?.id;
       if (!id) {
@@ -74,16 +82,17 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Keine Produkt-ID angegeben" })
         };
       }
+      // Lösche das Dokument über den Ref-Aufbau: Ref(Collection("products"), id)
       const delResult = await client.query(fql`
-        deleteDocument(document("products", ${id}))
+        Delete(Ref(Collection("products"), ${id}))
       `);
       return {
         statusCode: 200,
         body: JSON.stringify(delResult)
       };
     }
-
-    // Andere HTTP-Methoden nicht erlaubt
+    
+    // Für andere HTTP-Methoden:
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })
