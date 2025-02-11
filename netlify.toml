@@ -1,0 +1,13 @@
+[build]
+  # Falls du ein statisches Frontend hast, z. B. "publish = 'dist'", passe das hier an
+  publish = "."
+  # Optional: wenn du ein Framework-Build hast, dort das root-Verzeichnis angeben
+
+[functions]
+  # Sagt Netlify, wir wollen ESBuild und Fauna extern
+  node_bundler = "esbuild"
+  external_node_modules = ["fauna"]
+  included_files = ["netlify/functions/products.mjs"]
+
+  # Optional: Falls du generelle Node-Version einstellen willst
+  # node_bundler = "esbuild"
