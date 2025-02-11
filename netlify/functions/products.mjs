@@ -11,7 +11,7 @@ const q = faunadb.query;
 
 export async function handler(event, context) {
   const method = event.httpMethod;
-  
+
   try {
     // GET: Alle Produkte abrufen
     if (method === "GET") {
@@ -21,7 +21,7 @@ export async function handler(event, context) {
           q.Lambda("ref", q.Get(q.Var("ref")))
         )
       );
-      // Das Ergebnis enthält in result.data alle Dokumente
+      // result.data enthält alle Dokumente
       const data = result.data.map(doc => ({
         id: doc.ref.id,
         ...doc.data
@@ -49,15 +49,15 @@ export async function handler(event, context) {
           body: JSON.stringify({ error: "Ungültiges JSON im Body." })
         };
       }
-      
+
       const { name, price, points, imageData } = bodyData;
-      
+
       const createResult = await client.query(
         q.Create(q.Collection("products"), {
           data: { name, price, points, imageData }
         })
       );
-      
+
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -85,7 +85,7 @@ export async function handler(event, context) {
       };
     }
 
-    // Andere HTTP-Methoden werden nicht erlaubt
+    // Andere HTTP-Methoden
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })
@@ -97,3 +97,4 @@ export async function handler(event, context) {
       body: JSON.stringify({ error: err.message })
     };
   }
+}
